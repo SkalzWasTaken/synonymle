@@ -73,8 +73,12 @@
         .header-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 4px;
+        }
+
+        .title-container {
+            text-align: left;
         }
 
         h1 {
@@ -84,7 +88,13 @@
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-align: left;
+        }
+
+        .tagline {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            margin-bottom: 16px;
         }
 
         .theme-toggle {
@@ -102,13 +112,23 @@
             border-color: var(--accent);
         }
 
+        .game-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
         #round-info {
             font-size: 0.85rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 24px;
-            text-align: left;
+        }
+
+        #hearts-display {
+            font-size: 1.1rem;
+            letter-spacing: 2px;
         }
 
         #word-prompt {
@@ -219,11 +239,17 @@
 <body>
     <div class="card">
         <div class="header-row">
-            <h1>Synonymle</h1>
+            <div class="title-container">
+                <h1>Synonymle</h1>
+                <p class="tagline">The rarer the synonym, the more points you receive</p>
+            </div>
             <button class="theme-toggle" onclick="toggleTheme()">☀️ / 🌙</button>
         </div>
         <div id="game-area">
-            <p id="round-info">Round: 1 / 5</p>
+            <div class="game-meta">
+                <p id="round-info">Round: 1 / 5</p>
+                <div id="hearts-display">❤️❤️❤️</div>
+            </div>
             <h3 id="word-prompt">Loading word...</h3>
             <div id="input-area">
                 <input type="text" id="user-input" placeholder="Type a synonym..." autocomplete="off">
@@ -255,10 +281,22 @@
         let currentRound = 1;
         let totalScore = 0;
         let currentWordData = null;
-        let answered = false;
+        let hearts = 3;
+        let roundOver = false;
+
+        function updateHeartsDisplay() {
+            let display = '';
+            for (let i = 0; i < 3; i++) {
+                display += i < hearts ? '❤️' : '🖤';
+            }
+            document.getElementById('hearts-display').innerText = display;
+        }
 
         async function fetchNewWord() {
-            answered = false;
+            roundOver = false;
+            hearts = 3;
+            updateHeartsDisplay();
+
             let msgEl = document.getElementById('message');
             msgEl.innerHTML = "";
             msgEl.classList.add('hidden');
@@ -278,7 +316,7 @@
         }
 
         async function submitGuess() {
-            if (answered || !currentWordData) return;
+            if (roundOver || !currentWordData) return;
             let inputEl = document.getElementById('user-input');
             let guess = inputEl.value.trim().toLowerCase();
             if (!guess) return;
@@ -294,26 +332,44 @@
             messageEl.classList.remove('hidden');
 
             if (result.status === 'not_a_word') {
-                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word.</span>`;
-                return;
+                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word. (Hearts left: ${hearts})</span>`;
+                return; // Non-words do not cost a heart or end the round
             }
 
-            answered = true;
-            inputEl.disabled = true;
-            document.getElementById('guess-btn').disabled = true;
-
-            let scoreText = "";
             if (result.status === 'correct') {
+                roundOver = true;
+                inputEl.disabled = true;
+                document.getElementById('guess-btn').disabled = true;
+
                 let pts = Math.round((10 - currentWordData.score) * 10);
                 totalScore += pts;
-                scoreText = `<span class="correct">Correct! You scored ${pts} points.</span>`;
+                let scoreText = `<span class="correct">Correct! You scored ${pts} points.</span>`;
+                let synonymList = result.synonyms.join(', ');
+                messageEl.innerHTML = `${scoreText}<br><br><strong>Synonyms:</strong> ${synonymList}`;
+
+                handleRoundEnd();
             } else {
-                scoreText = `<span class="incorrect">Not a synonym. You scored 0 points.</span>`;
+                // Incorrect valid word loses a heart
+                hearts--;
+                updateHeartsDisplay();
+
+                if (hearts > 0) {
+                    messageEl.innerHTML = `<span class="incorrect">Not a synonym! Try again. (${hearts} heart${hearts === 1 ? '' : 's'} left)</span>`;
+                    inputEl.value = "";
+                    inputEl.focus();
+                } else {
+                    roundOver = true;
+                    inputEl.disabled = true;
+                    document.getElementById('guess-btn').disabled = true;
+
+                    let synonymList = result.synonyms.join(', ');
+                    messageEl.innerHTML = `<span class="incorrect">Out of hearts! You scored 0 points.</span><br><br><strong>Synonyms:</strong> ${synonymList}`;
+                    handleRoundEnd();
+                }
             }
+        }
 
-            let synonymList = result.synonyms.join(', ');
-            messageEl.innerHTML = `${scoreText}<br><br><strong>Synonyms:</strong> ${synonymList}`;
-
+        function handleRoundEnd() {
             if (currentRound < 5) {
                 let nextBtn = document.getElementById('next-btn');
                 nextBtn.classList.remove('hidden');
@@ -346,7 +402,7 @@
         document.getElementById('user-input').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                if (!answered) {
+                if (!roundOver) {
                     submitGuess();
                 } else if (currentRound < 5) {
                     nextRound();
