@@ -257,7 +257,7 @@
             </div>
             <div class="input-hint">💡 Tip: Type verbs in their base form (e.g., "drop", not "dropped").</div>
             <div id="message" class="hidden"></div>
-            <button class="action-btn hidden" id="next-btn" onclick="nextRound()">Next Round</button>
+            <button class="action-btn hidden" id="next-btn" onclick="handleActionClick()">Next Round</button>
         </div>
         <div id="score-area" class="hidden">
             <h2>Game Over!</h2>
@@ -332,8 +332,8 @@
             messageEl.classList.remove('hidden');
 
             if (result.status === 'not_a_word') {
-                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word.</span>`;
-                return; // Non-words do not cost a heart or end the round
+                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word. (Hearts left: ${hearts})</span>`;
+                return;
             }
 
             if (result.status === 'correct') {
@@ -349,12 +349,11 @@
 
                 handleRoundEnd();
             } else {
-                // Incorrect valid word loses a heart
                 hearts--;
                 updateHeartsDisplay();
 
                 if (hearts > 0) {
-                    messageEl.innerHTML = `<span class="incorrect">Not a synonym! Try again.</span>`;
+                    messageEl.innerHTML = `<span class="incorrect">Not a synonym! Try again. (${hearts} heart${hearts === 1 ? '' : 's'} left)</span>`;
                     inputEl.value = "";
                     inputEl.focus();
                 } else {
@@ -370,24 +369,27 @@
         }
 
         function handleRoundEnd() {
+            let nextBtn = document.getElementById('next-btn');
+            nextBtn.classList.remove('hidden');
+
             if (currentRound < 5) {
-                let nextBtn = document.getElementById('next-btn');
-                nextBtn.classList.remove('hidden');
-                nextBtn.focus();
+                nextBtn.innerText = "Next Round";
             } else {
-                document.getElementById('next-btn').classList.add('hidden');
-                setTimeout(() => {
-                    document.getElementById('game-area').classList.add('hidden');
-                    document.getElementById('score-area').classList.remove('hidden');
-                    document.getElementById('final-score').innerText = `Your total score is: ${totalScore}`;
-                }, 2500);
+                nextBtn.innerText = "View Final Score";
             }
+            nextBtn.focus();
         }
 
-        function nextRound() {
-            currentRound++;
-            document.getElementById('round-info').innerText = `Round: ${currentRound} / 5`;
-            fetchNewWord();
+        function handleActionClick() {
+            if (currentRound < 5) {
+                currentRound++;
+                document.getElementById('round-info').innerText = `Round: ${currentRound} / 5`;
+                fetchNewWord();
+            } else {
+                document.getElementById('game-area').classList.add('hidden');
+                document.getElementById('score-area').classList.remove('hidden');
+                document.getElementById('final-score').innerText = `Your total score is: ${totalScore}`;
+            }
         }
 
         function restartGame() {
@@ -404,8 +406,8 @@
                 event.preventDefault();
                 if (!roundOver) {
                     submitGuess();
-                } else if (currentRound < 5) {
-                    nextRound();
+                } else {
+                    handleActionClick();
                 }
             }
         });

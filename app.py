@@ -2,7 +2,7 @@ import os
 import random
 import nltk
 
-# Set NLTK data path to /tmp so it's fully writable on Render container deployments
+# Ensure NLTK data path points to Render's writable temporary directory
 nltk.data.path.append('/tmp/nltk_data')
 
 try:
@@ -13,26 +13,44 @@ except LookupError:
 
 from nltk.corpus import wordnet as wn
 from wordfreq import zipf_frequency, iter_wordlist
+from functools import lru_cache
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
+@lru_cache(maxsize=1)
+def _get_candidate_pool():
+    """Caches a broad, pre-filtered pool of common words on startup for instant, zero-lag gameplay."""
+    pool = []
+    for word in iter_wordlist('en'):
+        score = zipf_frequency(word, 'en')
+        if 4.0 <= score <= 7.5 and word.isalpha() and word.islower() and len(word) > 1 and ' ' not in word and '-' not in word:
+            pool.append(word)
+        if len(pool) >= 2000:  # Large enough for massive variety, small enough to initialize instantly
+            break
+    return pool
+
 def get_wordnet_relations(word):
+    """Extracts and normalizes clean synonyms and antonyms from WordNet lemmas."""
     synonyms = set()
     antonyms = set()
+    
     for syn in wn.synsets(word):
         for lemma in syn.lemmas():
             name = lemma.name().lower().replace('_', ' ')
             if name.isalpha() and name.islower() and len(name) > 1:
                 synonyms.add(name)
+                
             if lemma.antonyms():
                 for ant in lemma.antonyms():
                     ant_name = ant.name().lower().replace('_', ' ')
                     if ant_name.isalpha() and ant_name.islower() and len(ant_name) > 1:
                         antonyms.add(ant_name)
+                        
     return synonyms, antonyms
 
 def filter_synonyms(target_word):
+    """Filters raw WordNet relations, stripping out the target word and antonyms."""
     raw_syns, raw_ants = get_wordnet_relations(target_word)
     return [
         s for s in raw_syns 
@@ -40,49 +58,27 @@ def filter_synonyms(target_word):
         and s not in raw_ants
     ]
 
-# Build a large, randomized word pool on startup
-VALID_WORD_POOL = []
-
-def initialize_word_pool():
-    global VALID_WORD_POOL
-    print("Building randomized word pool...")
-    
-    # Collect a broad sample of common words from wordfreq
-    candidates = []
-    for word in iter_wordlist('en'):
-        score = zipf_frequency(word, 'en')
-        if 4.0 <= score <= 7.5 and word.isalpha() and word.islower() and len(word) > 1 and ' ' not in word and '-' not in word:
-            candidates.append(word)
-        # Limit initial collection to keep startup fast, but large enough for great variety
-        if len(candidates) >= 1500:
-            break
-            
-    # Shuffle the candidate list so we don't just take the top alphabetical words
+def get_word(lang='en', min_synonyms=3):
+    """Picks a random word from the cached pool that satisfies the minimum synonym threshold."""
+    candidates = list(_get_candidate_pool())
     random.shuffle(candidates)
     
-    # Filter a subset that guarantees at least 3 valid WordNet synonyms
-    for word in candidates:
-        syns = filter_synonyms(word)
-        if len(syns) >= 3:
-            VALID_WORD_POOL.append(word)
-        if len(VALID_WORD_POOL) >= 300: # Maintain a diverse pool of 300+ valid words
-            break
+    for candidate_word in candidates:
+        synonyms = filter_synonyms(candidate_word)
+        if len(synonyms) >= min_synonyms:
+            return {
+                "word": candidate_word,
+                "score": round(zipf_frequency(candidate_word, lang), 2),
+                "synonym_count": len(synonyms),
+                "synonyms": synonyms
+            }
             
-    if not VALID_WORD_POOL:
-        VALID_WORD_POOL = ["happy", "fast", "bright", "smart", "brave", "calm", "cold", "dark"]
-    print(f"Randomized pool ready with {len(VALID_WORD_POOL)} words.")
-
-# Run initialization on boot
-initialize_word_pool()
-
-def get_word(lang='en'):
-    candidate_word = random.choice(VALID_WORD_POOL)
-    synonyms = filter_synonyms(candidate_word)
+    # Fallback default if candidate scan exhausts
     return {
-        "word": candidate_word,
-        "score": round(zipf_frequency(candidate_word, lang), 2),
-        "synonym_count": len(synonyms),
-        "synonyms": synonyms
+        "word": "happy",
+        "score": 5.5,
+        "synonym_count": 3,
+        "synonyms": ["glad", "cheerful", "joyful"]
     }
 
 @app.route("/")
@@ -100,6 +96,7 @@ def api_check_guess():
     guess = data.get("guess", "").strip().lower()
     target_word = data.get("target", "").strip().lower()
     
+    # Validate if the guess is an actual recognized word in English
     if not guess.isalpha() or zipf_frequency(guess, 'en') == 0.0:
         return jsonify({"status": "not_a_word"})
         
