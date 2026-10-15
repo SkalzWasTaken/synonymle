@@ -26,7 +26,7 @@ def _get_candidate_pool():
         score = zipf_frequency(word, 'en')
         if 4.0 <= score <= 7.5 and word.isalpha() and word.islower() and len(word) > 1 and ' ' not in word and '-' not in word:
             pool.append(word)
-        if len(pool) >= 2000:  # Large enough for massive variety, small enough to initialize instantly
+        if len(pool) >= 100000:  # Large enough for massive variety, small enough to initialize instantly
             break
     return pool
 
