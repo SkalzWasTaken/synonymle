@@ -12,54 +12,75 @@ except LookupError:
     nltk.download('omw-1.4', download_dir='/tmp/nltk_data')
 
 from nltk.corpus import wordnet as wn
+from nltk.stem import WordNetLemmatizer
 from wordfreq import zipf_frequency, iter_wordlist
 from functools import lru_cache
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
+lemmatizer = WordNetLemmatizer()
+
+def to_base_form(word):
+    """Converts a word to its base canonical form (verbs, nouns, adjectives)."""
+    # Try verb lemmatization first, then noun, then adjective
+    verb_base = lemmatizer.lemmatize(word, pos='v')
+    if verb_base != word:
+        return verb_base
+    noun_base = lemmatizer.lemmatize(word, pos='n')
+    if noun_base != word:
+        return noun_base
+    return lemmatizer.lemmatize(word, pos='a')
 
 @lru_cache(maxsize=1)
 def _get_candidate_pool():
-    """Caches a broad, pre-filtered pool of common words on startup for instant, zero-lag gameplay."""
+    """Caches a broad pool of common words on startup."""
     pool = []
     for word in iter_wordlist('en'):
         score = zipf_frequency(word, 'en')
         if 4.0 <= score <= 7.5 and word.isalpha() and word.islower() and len(word) > 1 and ' ' not in word and '-' not in word:
-            pool.append(word)
-        if len(pool) >= 5000:  # Large enough for massive variety, small enough to initialize instantly
+            # Ensure the pool word itself is in its base form
+            base_word = to_base_form(word)
+            if base_word not in pool:
+                pool.append(base_word)
+        if len(pool) >= 5000:
             break
     return pool
 
 def get_wordnet_relations(word):
-    """Extracts and normalizes clean synonyms and antonyms from WordNet lemmas."""
+    """Extracts clean synonyms and antonyms from WordNet lemmas."""
     synonyms = set()
     antonyms = set()
     
-    for syn in wn.synsets(word):
+    # Ensure target word lookup is normalized
+    base_target = to_base_form(word)
+    
+    for syn in wn.synsets(base_target):
         for lemma in syn.lemmas():
             name = lemma.name().lower().replace('_', ' ')
             if name.isalpha() and name.islower() and len(name) > 1:
-                synonyms.add(name)
+                # Convert synonym to base form so "teachers" -> "teacher"
+                synonyms.add(to_base_form(name))
                 
             if lemma.antonyms():
                 for ant in lemma.antonyms():
                     ant_name = ant.name().lower().replace('_', ' ')
                     if ant_name.isalpha() and ant_name.islower() and len(ant_name) > 1:
-                        antonyms.add(ant_name)
+                        antonyms.add(to_base_form(ant_name))
                         
     return synonyms, antonyms
 
 def filter_synonyms(target_word):
     """Filters raw WordNet relations, stripping out the target word and antonyms."""
-    raw_syns, raw_ants = get_wordnet_relations(target_word)
+    base_target = to_base_form(target_word)
+    raw_syns, raw_ants = get_wordnet_relations(base_target)
     return [
         s for s in raw_syns 
-        if s != target_word.lower() 
+        if s != base_target 
         and s not in raw_ants
     ]
 
 def get_word(lang='en', min_synonyms=3):
-    """Picks a random word from the cached pool that satisfies the minimum synonym threshold."""
+    """Picks a random word from the cached pool in base form."""
     candidates = list(_get_candidate_pool())
     random.shuffle(candidates)
     
@@ -73,12 +94,11 @@ def get_word(lang='en', min_synonyms=3):
                 "synonyms": synonyms
             }
             
-    # Fallback default if candidate scan exhausts
     return {
-        "word": "happy",
+        "word": "teach",
         "score": 5.5,
         "synonym_count": 3,
-        "synonyms": ["glad", "cheerful", "joyful"]
+        "synonyms": ["instruct", "educate", "train"]
     }
 
 @app.route("/")
@@ -96,13 +116,15 @@ def api_check_guess():
     guess = data.get("guess", "").strip().lower()
     target_word = data.get("target", "").strip().lower()
     
-    # Validate if the guess is an actual recognized word in English
+    # Validate real word
     if not guess.isalpha() or zipf_frequency(guess, 'en') == 0.0:
         return jsonify({"status": "not_a_word"})
         
+    # Convert player's guess to base form for checking
+    base_guess = to_base_form(guess)
     synonyms = filter_synonyms(target_word)
     
-    if guess in synonyms:
+    if base_guess in synonyms or guess in synonyms:
         return jsonify({"status": "correct", "synonyms": synonyms})
     else:
         return jsonify({"status": "incorrect_word", "synonyms": synonyms})
