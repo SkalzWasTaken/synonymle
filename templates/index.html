@@ -332,7 +332,7 @@
             messageEl.classList.remove('hidden');
 
             if (result.status === 'not_a_word') {
-                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word. (Hearts left: ${hearts})</span>`;
+                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word.</span>`;
                 return; // Non-words do not cost a heart or end the round
             }
 
@@ -354,7 +354,7 @@
                 updateHeartsDisplay();
 
                 if (hearts > 0) {
-                    messageEl.innerHTML = `<span class="incorrect">Not a synonym! Try again. (${hearts} heart${hearts === 1 ? '' : 's'} left)</span>`;
+                    messageEl.innerHTML = `<span class="incorrect">Not a synonym! Try again.</span>`;
                     inputEl.value = "";
                     inputEl.focus();
                 } else {
