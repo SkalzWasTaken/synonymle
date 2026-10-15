@@ -15,7 +15,8 @@ def _get_common_words(lang, min_zipf, max_zipf):
         word for word in iter_wordlist(lang) 
         if min_zipf <= zipf_frequency(word, lang) <= max_zipf
         and word.isalpha()
-        and word.islower()  # Ensures it's lowercase (filters out proper nouns/names)
+        and word.islower()
+        and len(word) > 1
         and ' ' not in word 
         and '-' not in word
     ]
@@ -31,6 +32,13 @@ def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
                     raw_synonyms = dictionary.synonym(candidate_word)
                 except Exception:
                     raw_synonyms = None
+                
+                try:
+                    raw_antonyms = dictionary.antonym(candidate_word)
+                except Exception:
+                    raw_antonyms = None
+        
+        antonyms_set = {a.lower().strip() for a in raw_antonyms} if raw_antonyms else set()
         
         if raw_synonyms:
             synonyms = [
@@ -39,7 +47,9 @@ def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
                 and '-' not in s 
                 and s.lower() != candidate_word.lower() 
                 and s.isalpha() 
-                and s.islower()  # Filters out capitalized proper nouns in synonyms too
+                and s.islower()
+                and len(s) > 1
+                and s.lower().strip() not in antonyms_set
             ]
         else:
             synonyms = []
@@ -60,6 +70,37 @@ def index():
 def api_get_word():
     word_data = get_word()
     return jsonify(word_data)
+
+@app.route("/check_guess", methods=["POST"])
+def api_check_guess():
+    data = request.get_json()
+    guess = data.get("guess", "").strip().lower()
+    target_word = data.get("target", "").strip().lower()
+    
+    if not guess.isalpha() or zipf_frequency(guess, 'en') == 0.0:
+        return jsonify({"status": "not_a_word"})
+        
+    with open(os.devnull, 'w') as fnull:
+        with redirect_stdout(fnull), redirect_stderr(fnull):
+            try:
+                raw_synonyms = dictionary.synonym(target_word)
+            except Exception:
+                raw_synonyms = None
+            try:
+                raw_antonyms = dictionary.antonym(target_word)
+            except Exception:
+                raw_antonyms = None
+                
+    antonyms_set = {a.lower().strip() for a in raw_antonyms} if raw_antonyms else set()
+    synonyms = [
+        s.lower().strip() for s in raw_synonyms 
+        if raw_synonyms and s.lower().strip() not in antonyms_set
+    ] if raw_synonyms else []
+    
+    if guess in synonyms:
+        return jsonify({"status": "correct", "synonyms": synonyms})
+    else:
+        return jsonify({"status": "incorrect_word", "synonyms": synonyms})
 
 if __name__ == "__main__":
     app.run(debug=True)

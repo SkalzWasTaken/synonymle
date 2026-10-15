@@ -9,15 +9,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-primary: #f8fafc;
+            --bg-color: #0d1b1e;
+            --card-bg: #132226;
+            --text-primary: #f0fdf4;
             --text-secondary: #94a3b8;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --border: #334155;
+            --accent: #16a34a;          /* Vibrant Green */
+            --accent-hover: #15803d;    /* Darker Green */
+            --accent-glow: rgba(22, 163, 74, 0.25);
+            --border: #23383e;
             --success: #22c55e;
-            --error: #ef4444;
+            --error: #facc15;           /* Sunny Yellow for warnings/errors */
         }
 
         * {
@@ -44,7 +45,7 @@
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 32px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
             text-align: center;
         }
 
@@ -52,9 +53,9 @@
             font-size: 2rem;
             font-weight: 700;
             margin-bottom: 4px;
-            background: linear-gradient(to right, #818cf8, #c084fc);
-            -webkit-background-clip: text;
+            background: linear-gradient(to right, #4ade80, #fde047);
             background-clip: text;
+            -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -71,7 +72,7 @@
             font-weight: 600;
             margin-bottom: 20px;
             color: var(--text-primary);
-            background: rgba(15, 23, 42, 0.4);
+            background: rgba(13, 27, 30, 0.6);
             padding: 14px;
             border-radius: 10px;
             border: 1px solid var(--border);
@@ -97,22 +98,23 @@
 
         input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
         button {
             background-color: var(--accent);
-            color: white;
+            color: #0d1b1e;
             border: none;
             border-radius: 10px;
             padding: 12px 20px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: background-color 0.2s, transform 0.1s;
         }
 
         button:hover {
             background-color: var(--accent-hover);
+            color: white;
         }
 
         button:active {
@@ -133,7 +135,7 @@
             white-space: pre-line;
             line-height: 1.5;
             text-align: left;
-            background: rgba(15, 23, 42, 0.2);
+            background: rgba(13, 27, 30, 0.4);
             padding: 12px;
             border-radius: 8px;
             border: 1px solid var(--border);
@@ -151,6 +153,7 @@
         #score-area h2 {
             font-size: 1.75rem;
             margin-bottom: 12px;
+            color: #fde047;
         }
 
         #score-area p {
@@ -210,24 +213,33 @@
             inputEl.focus();
         }
 
-        function submitGuess() {
+        async function submitGuess() {
             if (answered || !currentWordData) return;
             let inputEl = document.getElementById('user-input');
             let guess = inputEl.value.trim().toLowerCase();
             if (!guess) return;
 
+            let response = await fetch('/check_guess', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: currentWordData.word, guess: guess })
+            });
+            let result = await response.json();
+
+            let messageEl = document.getElementById('message');
+            messageEl.classList.remove('hidden');
+
+            if (result.status === 'not_a_word') {
+                messageEl.innerHTML = `<span class="incorrect">Not a word. Please enter a valid word.</span>`;
+                return;
+            }
+
             answered = true;
             inputEl.disabled = true;
             document.getElementById('guess-btn').disabled = true;
 
-            let normalizedSynonyms = currentWordData.synonyms.map(s => s.toLowerCase().trim());
-            let isCorrect = normalizedSynonyms.includes(guess);
-
-            let messageEl = document.getElementById('message');
-            messageEl.classList.remove('hidden');
             let scoreText = "";
-
-            if (isCorrect) {
+            if (result.status === 'correct') {
                 let pts = Math.round((10 - currentWordData.score) * 10);
                 totalScore += pts;
                 scoreText = `<span class="correct">Correct! You scored ${pts} points.</span>`;
@@ -235,7 +247,7 @@
                 scoreText = `<span class="incorrect">Not a synonym. You scored 0 points.</span>`;
             }
 
-            let synonymList = currentWordData.synonyms.join(', ');
+            let synonymList = result.synonyms.join(', ');
             messageEl.innerHTML = `${scoreText}<br><br><strong>Synonyms:</strong> ${synonymList}`;
 
             if (currentRound < 5) {
