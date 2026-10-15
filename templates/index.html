@@ -2,18 +2,166 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Synonymle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif, system-ui; max-width: 600px; margin: 40px auto; padding: 20px; background: #f4f4f9; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        input { padding: 10px; width: 60%; border: 1px solid #ccc; border-radius: 4px; }
-        #message { margin-top: 15px; font-weight: bold; white-space: pre-line; line-height: 1.5; }
-        .correct { color: #28a745; }
-        .incorrect { color: #dc3545; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --border: #334155;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #round-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 24px;
+        }
+
+        #word-prompt {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            background: rgba(15, 23, 42, 0.4);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        #input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        input {
+            flex: 1;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: var(--border);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            white-space: pre-line;
+            line-height: 1.5;
+            text-align: left;
+            background: rgba(15, 23, 42, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        #next-btn {
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        .correct { color: var(--success); font-weight: 600; }
+        .incorrect { color: var(--error); font-weight: 600; }
         .hidden { display: none !important; }
+
+        #score-area h2 {
+            font-size: 1.75rem;
+            margin-bottom: 12px;
+        }
+
+        #score-area p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 24px;
+        }
+
+        #score-area button {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -23,11 +171,11 @@
             <p id="round-info">Round: 1 / 5</p>
             <h3 id="word-prompt">Loading word...</h3>
             <div id="input-area">
-                <input type="text" id="user-input" placeholder="Enter a synonym...">
+                <input type="text" id="user-input" placeholder="Type a synonym..." autocomplete="off">
                 <button id="guess-btn" onclick="submitGuess()">Guess</button>
             </div>
-            <div id="message"></div>
-            <button id="next-btn" class="hidden" onclick="nextRound()" style="margin-top: 15px;">Next Round</button>
+            <div id="message" class="hidden"></div>
+            <button id="next-btn" class="hidden" onclick="nextRound()">Next Round</button>
         </div>
         <div id="score-area" class="hidden">
             <h2>Game Over!</h2>
@@ -44,9 +192,14 @@
 
         async function fetchNewWord() {
             answered = false;
-            document.getElementById('message').innerHTML = "";
-            document.getElementById('user-input').value = "";
-            document.getElementById('user-input').disabled = false;
+            let msgEl = document.getElementById('message');
+            msgEl.innerHTML = "";
+            msgEl.classList.add('hidden');
+            
+            let inputEl = document.getElementById('user-input');
+            inputEl.value = "";
+            inputEl.disabled = false;
+            
             document.getElementById('guess-btn').disabled = false;
             document.getElementById('next-btn').classList.add('hidden');
             document.getElementById('word-prompt').innerText = "Loading word...";
@@ -54,22 +207,24 @@
             let response = await fetch('/get_word');
             currentWordData = await response.json();
             document.getElementById('word-prompt').innerText = `Your word is: ${currentWordData.word.toUpperCase()}`;
-            document.getElementById('user-input').focus();
+            inputEl.focus();
         }
 
         function submitGuess() {
             if (answered || !currentWordData) return;
-            let guess = document.getElementById('user-input').value.trim().toLowerCase();
+            let inputEl = document.getElementById('user-input');
+            let guess = inputEl.value.trim().toLowerCase();
             if (!guess) return;
 
             answered = true;
-            document.getElementById('user-input').disabled = true;
+            inputEl.disabled = true;
             document.getElementById('guess-btn').disabled = true;
 
             let normalizedSynonyms = currentWordData.synonyms.map(s => s.toLowerCase().trim());
             let isCorrect = normalizedSynonyms.includes(guess);
 
             let messageEl = document.getElementById('message');
+            messageEl.classList.remove('hidden');
             let scoreText = "";
 
             if (isCorrect) {
@@ -84,8 +239,9 @@
             messageEl.innerHTML = `${scoreText}<br><br><strong>Synonyms:</strong> ${synonymList}`;
 
             if (currentRound < 5) {
-                document.getElementById('next-btn').classList.remove('hidden');
-                document.getElementById('next-btn').focus();
+                let nextBtn = document.getElementById('next-btn');
+                nextBtn.classList.remove('hidden');
+                nextBtn.focus();
             } else {
                 document.getElementById('next-btn').classList.add('hidden');
                 setTimeout(() => {
@@ -111,7 +267,6 @@
             fetchNewWord();
         }
 
-        // Single controlled keydown listener on the input field
         document.getElementById('user-input').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
