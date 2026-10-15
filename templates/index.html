@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Synonymle</title>
+    <style>
+        body { font-family: sans-serif, system-ui; max-width: 600px; margin: 40px auto; padding: 20px; background: #f4f4f9; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input { padding: 10px; width: 60%; border: 1px solid #ccc; border-radius: 4px; }
+        #message { margin-top: 15px; font-weight: bold; white-space: pre-line; line-height: 1.5; }
+        .correct { color: #28a745; }
+        .incorrect { color: #dc3545; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Synonymle</h1>
+        <div id="game-area">
+            <p id="round-info">Round: 1 / 5</p>
+            <h3 id="word-prompt">Loading word...</h3>
+            <div id="input-area">
+                <input type="text" id="user-input" placeholder="Enter a synonym...">
+                <button id="guess-btn" onclick="submitGuess()">Guess</button>
+            </div>
+            <div id="message"></div>
+            <button id="next-btn" class="hidden" onclick="nextRound()" style="margin-top: 15px;">Next Round</button>
+        </div>
+        <div id="score-area" class="hidden">
+            <h2>Game Over!</h2>
+            <p id="final-score"></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let currentRound = 1;
+        let totalScore = 0;
+        let currentWordData = null;
+        let answered = false;
+
+        async function fetchNewWord() {
+            answered = false;
+            document.getElementById('message').innerHTML = "";
+            document.getElementById('user-input').value = "";
+            document.getElementById('user-input').disabled = false;
+            document.getElementById('guess-btn').disabled = false;
+            document.getElementById('next-btn').classList.add('hidden');
+            document.getElementById('word-prompt').innerText = "Loading word...";
+
+            let response = await fetch('/get_word');
+            currentWordData = await response.json();
+            document.getElementById('word-prompt').innerText = `Your word is: ${currentWordData.word.toUpperCase()}`;
+            document.getElementById('user-input').focus();
+        }
+
+        function submitGuess() {
+            if (answered || !currentWordData) return;
+            let guess = document.getElementById('user-input').value.trim().toLowerCase();
+            if (!guess) return;
+
+            answered = true;
+            document.getElementById('user-input').disabled = true;
+            document.getElementById('guess-btn').disabled = true;
+
+            let normalizedSynonyms = currentWordData.synonyms.map(s => s.toLowerCase().trim());
+            let isCorrect = normalizedSynonyms.includes(guess);
+
+            let messageEl = document.getElementById('message');
+            let scoreText = "";
+
+            if (isCorrect) {
+                let pts = Math.round((10 - currentWordData.score) * 10);
+                totalScore += pts;
+                scoreText = `<span class="correct">Correct! You scored ${pts} points.</span>`;
+            } else {
+                scoreText = `<span class="incorrect">Not a synonym. You scored 0 points.</span>`;
+            }
+
+            let synonymList = currentWordData.synonyms.join(', ');
+            messageEl.innerHTML = `${scoreText}<br><br><strong>Synonyms:</strong> ${synonymList}`;
+
+            if (currentRound < 5) {
+                document.getElementById('next-btn').classList.remove('hidden');
+                document.getElementById('next-btn').focus();
+            } else {
+                document.getElementById('next-btn').classList.add('hidden');
+                setTimeout(() => {
+                    document.getElementById('game-area').classList.add('hidden');
+                    document.getElementById('score-area').classList.remove('hidden');
+                    document.getElementById('final-score').innerText = `Your total score is: ${totalScore}`;
+                }, 2500);
+            }
+        }
+
+        function nextRound() {
+            currentRound++;
+            document.getElementById('round-info').innerText = `Round: ${currentRound} / 5`;
+            fetchNewWord();
+        }
+
+        function restartGame() {
+            currentRound = 1;
+            totalScore = 0;
+            document.getElementById('round-info').innerText = `Round: 1 / 5`;
+            document.getElementById('score-area').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            fetchNewWord();
+        }
+
+        // Single controlled keydown listener on the input field
+        document.getElementById('user-input').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!answered) {
+                    submitGuess();
+                } else if (currentRound < 5) {
+                    nextRound();
+                }
+            }
+        });
+
+        fetchNewWord();
+    </script>
+</body>
+</html>
