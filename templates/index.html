@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,12 +13,31 @@
             --card-bg: #132226;
             --text-primary: #f0fdf4;
             --text-secondary: #94a3b8;
-            --accent: #16a34a;          /* Vibrant Green */
-            --accent-hover: #15803d;    /* Darker Green */
+            --accent: #16a34a;
+            --accent-hover: #15803d;
             --accent-glow: rgba(22, 163, 74, 0.25);
             --border: #23383e;
             --success: #22c55e;
-            --error: #facc15;           /* Sunny Yellow for warnings/errors */
+            --error: #facc15;
+            --input-bg: #0d1b1e;
+            --prompt-bg: rgba(13, 27, 30, 0.6);
+            --message-bg: rgba(13, 27, 30, 0.4);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-primary: #132226;
+            --text-secondary: #64748b;
+            --accent: #16a34a;
+            --accent-hover: #15803d;
+            --accent-glow: rgba(22, 163, 74, 0.15);
+            --border: #e2e8f0;
+            --success: #16a34a;
+            --error: #ca8a04;
+            --input-bg: #f8fafc;
+            --prompt-bg: rgba(22, 163, 74, 0.05);
+            --message-bg: rgba(241, 245, 249, 0.8);
         }
 
         * {
@@ -26,6 +45,7 @@
             margin: 0;
             padding: 0;
             font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
 
         body {
@@ -45,18 +65,41 @@
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 32px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
             text-align: center;
+            position: relative;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
         }
 
         h1 {
             font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 4px;
             background: linear-gradient(to right, #4ade80, #fde047);
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-align: left;
+        }
+
+        .theme-toggle {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent);
         }
 
         #round-info {
@@ -65,6 +108,7 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 24px;
+            text-align: left;
         }
 
         #word-prompt {
@@ -72,7 +116,7 @@
             font-weight: 600;
             margin-bottom: 20px;
             color: var(--text-primary);
-            background: rgba(13, 27, 30, 0.6);
+            background: var(--prompt-bg);
             padding: 14px;
             border-radius: 10px;
             border: 1px solid var(--border);
@@ -81,19 +125,26 @@
         #input-area {
             display: flex;
             gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .input-hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: left;
             margin-bottom: 16px;
+            padding-left: 2px;
         }
 
         input {
             flex: 1;
-            background: var(--bg-color);
+            background: var(--input-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px 16px;
             color: var(--text-primary);
             font-size: 1rem;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         input:focus {
@@ -101,27 +152,25 @@
             box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
-        button {
+        button.action-btn {
             background-color: var(--accent);
-            color: #0d1b1e;
+            color: #ffffff;
             border: none;
             border-radius: 10px;
             padding: 12px 20px;
             font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
         }
 
-        button:hover {
+        button.action-btn:hover {
             background-color: var(--accent-hover);
-            color: white;
         }
 
-        button:active {
+        button.action-btn:active {
             transform: scale(0.98);
         }
 
-        button:disabled {
+        button.action-btn:disabled {
             background: var(--border);
             color: var(--text-secondary);
             cursor: not-allowed;
@@ -135,7 +184,7 @@
             white-space: pre-line;
             line-height: 1.5;
             text-align: left;
-            background: rgba(13, 27, 30, 0.4);
+            background: var(--message-bg);
             padding: 12px;
             border-radius: 8px;
             border: 1px solid var(--border);
@@ -153,7 +202,7 @@
         #score-area h2 {
             font-size: 1.75rem;
             margin-bottom: 12px;
-            color: #fde047;
+            color: var(--accent);
         }
 
         #score-area p {
@@ -169,25 +218,40 @@
 </head>
 <body>
     <div class="card">
-        <h1>Synonymle</h1>
+        <div class="header-row">
+            <h1>Synonymle</h1>
+            <button class="theme-toggle" onclick="toggleTheme()">☀️ / 🌙</button>
+        </div>
         <div id="game-area">
             <p id="round-info">Round: 1 / 5</p>
             <h3 id="word-prompt">Loading word...</h3>
             <div id="input-area">
                 <input type="text" id="user-input" placeholder="Type a synonym..." autocomplete="off">
-                <button id="guess-btn" onclick="submitGuess()">Guess</button>
+                <button class="action-btn" id="guess-btn" onclick="submitGuess()">Guess</button>
             </div>
+            <div class="input-hint">💡 Tip: Type verbs in their base form (e.g., "drop", not "dropped").</div>
             <div id="message" class="hidden"></div>
-            <button id="next-btn" class="hidden" onclick="nextRound()">Next Round</button>
+            <button class="action-btn hidden" id="next-btn" onclick="nextRound()">Next Round</button>
         </div>
         <div id="score-area" class="hidden">
             <h2>Game Over!</h2>
             <p id="final-score"></p>
-            <button onclick="restartGame()">Play Again</button>
+            <button class="action-btn" onclick="restartGame()">Play Again</button>
         </div>
     </div>
 
     <script>
+        // Theme initialization
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
         let currentRound = 1;
         let totalScore = 0;
         let currentWordData = null;

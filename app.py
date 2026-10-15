@@ -21,6 +21,23 @@ def _get_common_words(lang, min_zipf, max_zipf):
         and '-' not in word
     ]
 
+def filter_synonyms(raw_synonyms, raw_antonyms, target_word):
+    if not raw_synonyms:
+        return []
+    
+    antonyms_set = {a.lower().strip() for a in raw_antonyms} if raw_antonyms else set()
+    
+    return [
+        s.lower().strip() for s in raw_synonyms 
+        if ' ' not in s 
+        and '-' not in s 
+        and s.lower().strip() != target_word.lower().strip() 
+        and s.isalpha() 
+        and s.islower()
+        and len(s) > 1
+        and s.lower().strip() not in antonyms_set
+    ]
+
 def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
     common_words = _get_common_words(lang, min_zipf, max_zipf)
     while True:
@@ -38,21 +55,7 @@ def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
                 except Exception:
                     raw_antonyms = None
         
-        antonyms_set = {a.lower().strip() for a in raw_antonyms} if raw_antonyms else set()
-        
-        if raw_synonyms:
-            synonyms = [
-                s for s in raw_synonyms 
-                if ' ' not in s 
-                and '-' not in s 
-                and s.lower() != candidate_word.lower() 
-                and s.isalpha() 
-                and s.islower()
-                and len(s) > 1
-                and s.lower().strip() not in antonyms_set
-            ]
-        else:
-            synonyms = []
+        synonyms = filter_synonyms(raw_synonyms, raw_antonyms, candidate_word)
             
         if len(synonyms) >= min_synonyms:
             return {
@@ -91,11 +94,7 @@ def api_check_guess():
             except Exception:
                 raw_antonyms = None
                 
-    antonyms_set = {a.lower().strip() for a in raw_antonyms} if raw_antonyms else set()
-    synonyms = [
-        s.lower().strip() for s in raw_synonyms 
-        if raw_synonyms and s.lower().strip() not in antonyms_set
-    ] if raw_synonyms else []
+    synonyms = filter_synonyms(raw_synonyms, raw_antonyms, target_word)
     
     if guess in synonyms:
         return jsonify({"status": "correct", "synonyms": synonyms})
