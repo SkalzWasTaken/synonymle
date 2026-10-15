@@ -15,19 +15,36 @@ def _get_common_words(lang, min_zipf, max_zipf):
         word for word in iter_wordlist(lang) 
         if min_zipf <= zipf_frequency(word, lang) <= max_zipf
         and word.isalpha()
+        and word.islower()  # Ensures it's lowercase (filters out proper nouns/names)
+        and ' ' not in word 
+        and '-' not in word
     ]
 
 def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
     common_words = _get_common_words(lang, min_zipf, max_zipf)
     while True:
         candidate_word = random.choice(common_words)
+        
         with open(os.devnull, 'w') as fnull:
             with redirect_stdout(fnull), redirect_stderr(fnull):
                 try:
-                    synonyms = dictionary.synonym(candidate_word)
+                    raw_synonyms = dictionary.synonym(candidate_word)
                 except Exception:
-                    synonyms = None
-        if synonyms and len(synonyms) >= min_synonyms:
+                    raw_synonyms = None
+        
+        if raw_synonyms:
+            synonyms = [
+                s for s in raw_synonyms 
+                if ' ' not in s 
+                and '-' not in s 
+                and s.lower() != candidate_word.lower() 
+                and s.isalpha() 
+                and s.islower()  # Filters out capitalized proper nouns in synonyms too
+            ]
+        else:
+            synonyms = []
+            
+        if len(synonyms) >= min_synonyms:
             return {
                 "word": candidate_word,
                 "score": round(zipf_frequency(candidate_word, lang), 2),
