@@ -1,19 +1,22 @@
 import os
 import random
 import nltk
+
+# Set NLTK data path to /tmp so it's fully writable on Render container deployments
+nltk.data.path.append('/tmp/nltk_data')
+
+try:
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    nltk.download('wordnet', download_dir='/tmp/nltk_data')
+    nltk.download('omw-1.4', download_dir='/tmp/nltk_data')
+
 from nltk.corpus import wordnet as wn
 from wordfreq import zipf_frequency, iter_wordlist
 from functools import lru_cache
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
-
-# Ensure NLTK WordNet data is available locally/on container build
-try:
-    wn.synsets('test')
-except LookupError:
-    nltk.download('wordnet')
-    nltk.download('omw-1.4')
 
 @lru_cache(maxsize=1)
 def _get_common_words(lang, min_zipf, max_zipf):
@@ -34,7 +37,6 @@ def get_wordnet_relations(word):
     for syn in wn.synsets(word):
         for lemma in syn.lemmas():
             name = lemma.name().lower().replace('_', ' ')
-            # Ensure single word, alphabetic, lowercase, no special formatting
             if name.isalpha() and name.islower() and len(name) > 1:
                 synonyms.add(name)
                 
@@ -48,8 +50,6 @@ def get_wordnet_relations(word):
 
 def filter_synonyms(target_word):
     raw_syns, raw_ants = get_wordnet_relations(target_word)
-    
-    # Remove the target word itself and any explicit antonyms
     valid_synonyms = [
         s for s in raw_syns 
         if s != target_word.lower() 
@@ -57,12 +57,14 @@ def filter_synonyms(target_word):
     ]
     return valid_synonyms
 
-def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
+def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=3):
     common_words = _get_common_words(lang, min_zipf, max_zipf)
-    while True:
-        candidate_word = random.choice(common_words)
+    # Shuffle common words so we don't check in the exact same deterministic order every time
+    shuffled_words = list(common_words)
+    random.shuffle(shuffled_words)
+    
+    for candidate_word in shuffled_words:
         synonyms = filter_synonyms(candidate_word)
-            
         if len(synonyms) >= min_synonyms:
             return {
                 "word": candidate_word,
@@ -70,6 +72,14 @@ def get_word(lang='en', min_zipf=4.0, max_zipf=8.0, min_synonyms=5):
                 "synonym_count": len(synonyms),
                 "synonyms": synonyms
             }
+            
+    # Fallback default if loop exhausts
+    return {
+        "word": "happy",
+        "score": 5.0,
+        "synonym_count": 3,
+        "synonyms": ["glad", "cheerful", "joyful"]
+    }
 
 @app.route("/")
 def index():
